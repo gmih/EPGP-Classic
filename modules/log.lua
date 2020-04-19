@@ -240,16 +240,7 @@ function mod:Export()
 
   d.roster = EPGP:ExportRoster()
 
-  d.loot = {}
-  for i, record in ipairs(self.db.profile.log) do
-    local timestamp, kind, name, reason, amount = unpack(record)
-    if kind == "GP" or kind == "BI" then
-      local itemString = reason:match("item[%-?%d:]+")
-      if itemString then
-        table.insert(d.loot, {timestamp, name, itemString, amount})
-      end
-    end
-  end
+  d.loot = self.db.profile.log
 
   return JSON.Serialize(d):gsub("\124", "\124\124")
 end
@@ -350,26 +341,8 @@ function mod:Import(jsonStr)
   EPGP:SetGlobalConfiguration(d.decay_p, d.extras_p, d.base_gp, d.min_ep, d.outsiders or 0)
   EPGP:ImportRoster(d.roster, d.base_gp)
 
-  -- Trim the log if necessary.
-  local timestamp = d.timestamp
-  while true do
-    local records = #self.db.profile.log
-    if records == 0 then
-      break
-    end
-
-    if self.db.profile.log[records][1] > timestamp then
-      table.remove(self.db.profile.log)
-    else
-      break
-    end
-  end
-  -- Add the redos back to the log if necessary.
-  while #self.db.profile.redo ~= 0 do
-    local record = table.remove(self.db.profile.redo)
-    if record[1] < timestamp then
-      table.insert(self.db.profile.log, record)
-    end
+  if d.loot then
+    self.db.profile.log = d.loot
   end
 
   callbacks:Fire("LogChanged", #self.db.profile.log)
@@ -407,8 +380,4 @@ function mod:OnEnable()
   -- This is kept for historical reasons. See:
   -- http://code.google.com/p/epgp/issues/detail?id=350.
   EPGP.db.RegisterCallback(self, "OnDatabaseShutdown", "Snapshot")
-end
-
-function mod:PLAYER_ENTERING_WORLD()
-    EPGP:GetModule("log"):TrimToOneMonth()
 end
